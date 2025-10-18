@@ -21,27 +21,45 @@ export class DataService {
   }
 
   // 🔹 Retry helper for fetch
-  private static async fetchWithRetry(
-    url: string,
-    retries = 2,
-    delay = 2000,
-    timeoutMs = 30000
-  ): Promise<Response> {
-    for (let i = 0; i <= retries; i++) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-        return res;
-      } catch (err) {
-        if (i === retries) throw err;
+  // 🔹 Enhanced fetchWithRetry to handle ECONNRESET / terminated errors more gracefully
+private static async fetchWithRetry(
+  url: string,
+  retries = 3,
+  delay = 3000,
+  timeoutMs = 30000
+): Promise<Response> {
+  let lastError: any;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      return res;
+    } catch (err: any) {
+      lastError = err;
+
+      // ECONNRESET or aborted fetch — retry
+      const isConnectionReset =
+        err?.code === "ECONNRESET" || err?.name === "AbortError" || err?.message?.includes("terminated");
+
+      if (i < retries - 1 && isConnectionReset) {
+        console.warn(`⚠️ Fetch failed (${err.message}) — retrying in ${delay / 1000}s...`);
         await new Promise((r) => setTimeout(r, delay));
+        continue;
       }
+
+      break; // don't retry for non-network errors
     }
-    throw new Error("Failed after retries");
   }
+
+  throw lastError;
+}
+
 
   // 🔹 PHIVOLCS fetch
   static async fetchPhivolcsData(): Promise<Quake[]> {
@@ -50,7 +68,7 @@ export class DataService {
     //   if (this.isDev) process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-      const response = await this.fetchWithRetry(this.PHIVOLCS_URL, 2, 2000, 15000);
+      const response = await this.fetchWithRetry(this.PHIVOLCS_URL, 3, 2000, 15000);
       const html = await response.text();
       if (!html || html.length < 1000) return [];
 
