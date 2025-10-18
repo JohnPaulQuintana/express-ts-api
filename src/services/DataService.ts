@@ -47,7 +47,8 @@ export class DataService {
   static async fetchPhivolcsData(): Promise<Quake[]> {
     try {
       // ✅ Dev only: ignore TLS errors
-      if (this.isDev) process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    //   if (this.isDev) process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
       const response = await this.fetchWithRetry(this.PHIVOLCS_URL, 2, 2000, 15000);
       const html = await response.text();
