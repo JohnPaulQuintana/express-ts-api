@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import quakesRouter from "./routes/quakes";
+import quakesRouter from "../src/routes/quakes";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10); // ✅ convert to number
